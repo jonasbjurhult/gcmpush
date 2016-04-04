@@ -30,6 +30,12 @@ import com.google.gson.Gson;
 import org.appcelerator.kroll.common.Log;
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.util.TiRHelper;
+import org.appcelerator.titanium.util.TiUrl;
+import org.appcelerator.titanium.util.TiUIHelper;
+import org.appcelerator.kroll.KrollProxy;
+import org.appcelerator.titanium.TiContext;
+
+import org.appcelerator.titanium.util.TiConvert;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -131,7 +137,7 @@ public class GCMIntentService extends GCMBaseIntentService {
 
         /* Get settings from notification object */
         int smallIcon = 0;
-        int largeIcon = 0;
+        Bitmap largeIcon = null;
         String sound = null;
         boolean vibrate = false;
         boolean insistent = false;
@@ -156,13 +162,25 @@ public class GCMIntentService extends GCMBaseIntentService {
         Map<String, Object> notificationSettings = new Gson().fromJson(TiApplication.getInstance().getAppProperties().getString(GCMModule.NOTIFICATION_SETTINGS, null), Map.class);
         if (notificationSettings != null) {
             if (notificationSettings.get("smallIcon") instanceof String) {
-                smallIcon = getResource("drawable", (String) notificationSettings.get("smallIcon"));
+                String iconUrl = TiConvert.toString(notificationSettings.get("smallIcon"));
+                if (iconUrl == null) {
+                    Log.e(TAG, "Url is null");
+                    return;
+                }
+                smallIcon = TiUIHelper.getResourceId("file:///android_asset/Resources"+iconUrl);
+                Log.e(LCAT, " chcek3 , " + smallIcon);
             } else {
                 Log.e(LCAT, "Invalid setting smallIcon, should be String");
             }
 
             if (notificationSettings.get("largeIcon") instanceof String) {
-                largeIcon = getResource("drawable", (String) notificationSettings.get("largeIcon"));
+                String iconUrl = TiConvert.toString(notificationSettings.get("largeIcon"));
+                if (iconUrl == null) {
+                    Log.e(TAG, "Url is null");
+                    return;
+                }
+
+                largeIcon = BitmapFactory.decodeResource(TiApplication.getInstance().getResources(), TiUIHelper.getResourceId("file:///android_asset/Resources"+iconUrl));
             } else {
                 Log.e(LCAT, "Invalid setting largeIcon, should be String");
             }
@@ -280,6 +298,12 @@ public class GCMIntentService extends GCMBaseIntentService {
                         Log.e(LCAT, "Invalid setting ledOn, should be positive");
                         ledOn = null;
                     }
+                } else if (notificationSettings.get("ledOn") instanceof Double) {
+                    ledOn = ((Double) notificationSettings.get("ledOn")).intValue();
+                    if (ledOn < 0) {
+                        Log.e(LCAT, "Invalid setting ledOn, should be positive");
+                        ledOn = null;
+                    }
                 } else {
                     Log.e(LCAT, "Invalid setting ledOn, should be Integer");
                 }
@@ -288,6 +312,12 @@ public class GCMIntentService extends GCMBaseIntentService {
             if (notificationSettings.get("ledOff") != null) {
                 if (notificationSettings.get("ledOff") instanceof Integer) {
                     ledOff = (Integer) notificationSettings.get("ledOff");
+                    if (ledOff < 0) {
+                        Log.e(LCAT, "Invalid setting ledOff, should be positive");
+                        ledOff = null;
+                    }
+                } else if (notificationSettings.get("ledOff") instanceof Double) {
+                    ledOff = ((Double) notificationSettings.get("ledOff")).intValue();
                     if (ledOff < 0) {
                         Log.e(LCAT, "Invalid setting ledOff, should be positive");
                         ledOff = null;
@@ -318,14 +348,14 @@ public class GCMIntentService extends GCMBaseIntentService {
         }
 
         /* If icon not found, default to appicon */
-        if (smallIcon == 0) {
-            smallIcon = getResource("drawable", "appicon");
-        }
+        // if (smallIcon == 0) {
+        //     smallIcon = getResource("drawable", "appicon");
+        // }
 
-        /* If large icon not found, default to icon */
-        if (largeIcon == 0) {
-            largeIcon = smallIcon;
-        }
+        // // If large icon not found, default to icon 
+        // if (largeIcon == 0) {
+        //     largeIcon = smallIcon;
+        // }
 
         /* Create intent to (re)start the app's root activity */
         String pkg = TiApplication.getInstance().getApplicationContext().getPackageName();
@@ -368,10 +398,10 @@ public class GCMIntentService extends GCMBaseIntentService {
         } else {
             Log.d(LCAT, "Creating notification...");
 
-            Bitmap bitmap = BitmapFactory.decodeResource(getResources(), largeIcon);
-            if (bitmap == null) {
-                Log.d(LCAT, "No large icon found");
-            }
+            // Bitmap bitmap = BitmapFactory.decodeResource(getResources(), largeIcon);
+            // if (bitmap == null) {
+            //     Log.d(LCAT, "No large icon found");
+            // }
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
                     .setContentTitle(title)
@@ -379,7 +409,7 @@ public class GCMIntentService extends GCMBaseIntentService {
                     .setTicker(ticker)
                     .setContentIntent(PendingIntent.getActivity(this, 0, launcherIntent, PendingIntent.FLAG_ONE_SHOT))
                     .setSmallIcon(smallIcon)
-                    .setLargeIcon(bitmap);
+                    .setLargeIcon(largeIcon);
 
             /* Name of group to group similar notifications together, can also be set in the push notification payload */
             if (data.get("group") != null) {
@@ -469,9 +499,11 @@ public class GCMIntentService extends GCMBaseIntentService {
 
             /* Specify LED flashing */
             if (ledOn != null || ledOff != null) {
+                notification.ledARGB = 0xff00ff00;
                 notification.flags |= Notification.FLAG_SHOW_LIGHTS;
                 if (ledOn != null) {
                     notification.ledOnMS = ledOn;
+
                 }
                 if (ledOff != null) {
                     notification.ledOffMS = ledOff;
