@@ -33,7 +33,6 @@ import org.appcelerator.titanium.util.TiRHelper;
 import org.appcelerator.titanium.util.TiUrl;
 import org.appcelerator.titanium.util.TiUIHelper;
 import org.appcelerator.kroll.KrollProxy;
-import org.appcelerator.titanium.TiContext;
 
 import org.appcelerator.titanium.util.TiConvert;
 import org.json.JSONException;
